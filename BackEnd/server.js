@@ -160,7 +160,7 @@ app.post('/api/addbooks',
 	            if (book) return res.status(400).send({ success: false.valueOf() , msg: 'The book already exist, try editing existing.' });
 
 	            // Create and save the user
-	            book = new Book({
+	            book = new Books({
 	            	author: author,
 					title: title,
 					callNumber:callNumber,
@@ -180,6 +180,60 @@ app.post('/api/addbooks',
 	            });
 	        });
 
+});
+
+app.get('/api/getbooks',
+	function (req, res) {
+
+        console.log("getbooks");
+		var title = req.body.title;
+		var libId = req.body.enteredby;
+		console.log(title +","+ libId);
+		
+		Books.find({title: title, enteredby:libId},{}, function (err, docs) {
+			if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
+	                return res.status(200).send({ success: true.valueOf(),books: docs.valueOf() });
+			});
+    });
+
+app.delete('/api/deletebooks', function (req, res) {
+	console.log("deletebooks");
+   	var book_id = req.body.bookId;
+
+	//TO BE DONE
+	//CHECK IF THERES ANYONE BORROWED THIS BOOK, IF YES, FAIL AND SEND APPROPRIATE COMMENTS
+			// ELSE IF NOT, GO AHEAD
+	
+			
+	Books.remove({ _id:book_id}, function (err, docs) {
+        if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
+	                return res.status(200).send({ success: true.valueOf(),msg: 'Book deleted!' });
+	});
+
+});
+
+app.post('/api/updatebooks', function (req, res) {
+	console.log("editbooks");
+	var book = JSON.parse(req.body.book);
+	console.log(book);
+	console.log(book.author);
+    Books.update({_id: book.id}, {
+    		"author": book.author,
+		"title": book.title,
+		"callNumber":book.callNumber,
+		"publisher":book.publisher,
+		"year": book.year,
+		"location": book.location,
+		"copies":book.copies,
+		"status": book.status,
+		"keywords": book.keywords,
+		"image": book.image,
+		"enteredby": book.enteredby
+ 	}, function (err, docs){
+    		if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not updated!' }); }
+	        return res.status(200).send({  success: true.valueOf(),msg: 'Book updated!' });
+        }
+    });
 });
 
 app.post('/login',function(req,res){
