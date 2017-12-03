@@ -186,15 +186,18 @@ app.get('/api/getbooks',
 	function (req, res) {
 
         console.log("getbooks");
-		var title = req.body.title;
-		var libId = req.body.enteredby;
+		var title = req.param("title");
+		var libId = req.param("enteredby");
 		console.log(title +","+ libId);
 		
-		Books.find({title: title, enteredby:libId},{}, function (err, docs) {
+		Books.find({title: title, 'enteredby._id': libId}, function (err, docs) {
+            
 			if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
-	                return res.status(200).send({ success: true.valueOf(),books: docs.valueOf() });
-			});
-    });
+	        res.json(
+                docs
+            );
+		});
+});
 
 app.delete('/api/deletebooks', function (req, res) {
 	console.log("deletebooks");
@@ -212,9 +215,9 @@ app.delete('/api/deletebooks', function (req, res) {
 
 });
 
-app.post('/api/updatebooks', function (req, res) {
+app.put('/api/updatebooks', function (req, res) {
 	console.log("editbooks");
-	var book = JSON.parse(req.body.book);
+	var book = req.body;
 	console.log(book);
 	console.log(book.author);
     Books.update({_id: book.id}, {
@@ -232,7 +235,6 @@ app.post('/api/updatebooks', function (req, res) {
  	}, function (err, docs){
     		if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not updated!' }); }
 	        return res.status(200).send({  success: true.valueOf(),msg: 'Book updated!' });
-        }
     });
 });
 
