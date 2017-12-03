@@ -10,7 +10,7 @@ var mongoose    = require('mongoose');
 var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens
 var config = require('./config'); // get our config file
 var User   = require('./app/models/user'); // get our mongoose model
-
+var Books   = require('./app/models/books'); // get our mongoose model
 var crypto = require('crypto');
 var nodemailer = require('nodemailer');
 var expressValidator = require('express-validator');
@@ -137,6 +137,50 @@ app.post('/confirm',function(req,res){
     });
 });
 
+app.post('/api/addbooks',
+		function (req, res) {
+
+	        console.log("addbooks");
+	        
+			var author = req.body.author;
+			var title = req.body.title;
+			var callNumber = req.body.callNumber;
+			var publisher = req.body.publisher;
+			var year = req.body.year;
+			var location = req.body.location;
+			var copies = req.body.copies;
+			var status = req.body.status;
+			var keywords = req.body.keywords;
+			var image = req.body.image;
+			var enteredby = req.body.enteredby;
+			
+	        Books.findOne({ author: req.body.author ,title: req.body.title }, function (err, book) {
+
+	            // Make sure user doesn't already exist
+	            if (book) return res.status(400).send({ success: false.valueOf() , msg: 'The book already exist, try editing existing.' });
+
+	            // Create and save the user
+	            book = new Book({
+	            	author: author,
+					title: title,
+					callNumber:callNumber,
+					publisher:publisher,
+					year: year,
+					location: location,
+					copies:copies,
+					status: status,
+					keywords: keywords,
+					image: image,
+					enteredby: enteredby 
+	            	});
+	            
+	            book.save(function (err) {
+	                if (err) { return res.status(500).send({ success: false.valueOf(),msg: 'Book not saved!' }); }
+	                return res.status(200).send({ success: true.valueOf(),msg: 'Book saved!' });
+	            });
+	        });
+
+});
 
 app.post('/login',function(req,res){
     req.checkBody('email', 'Email is not valid').isEmail();
