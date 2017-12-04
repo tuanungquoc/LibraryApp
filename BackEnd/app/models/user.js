@@ -11,5 +11,5 @@ module.exports = mongoose.model('User', new Schema({
   role: String,
   passwordResetToken: String,
   passwordResetExpires: Date,
-  checkedBook: [{ type: mongoose.Schema.Types.ObjectId, required: true, ref: 'User' }]
+  checkedBook: [{ type: mongoose.Schema.Types.ObjectId, required: true, ref: 'checkedBooks' }]
 }));
