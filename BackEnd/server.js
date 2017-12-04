@@ -66,11 +66,11 @@ app.get('/test', function(req, res) {
 
 app.post('/register', function(req, res) {
     req.checkBody('email', 'Enter a valid email').isEmail();
-
+    req.checkBody('studentID','Enter a valid student ID').isNumeric();
     var errors = req.validationErrors();
     if (errors) {
             
-            res.send(errors);
+            res.status(422).send(errors);
             return;
         } 
     //   if (errors) { return res.status(400).send(errors); }
@@ -78,9 +78,17 @@ app.post('/register', function(req, res) {
 
         // Make sure user doesn't already exist
         if (user) return res.status(400).send({ success: false.valueOf() , msg: 'Your email address is already associated with another account.' });
-
+        //parsing domain 
+        var email = req.body.email;
+        var domain = email.replace(/.*@/, "");
+        console.log(domain);
         // Create and save the user
-        user = new User({ name: req.body.name, email: req.body.email, password: req.body.password });
+        var role = 'patron';
+        if(domain == 'sjsu.edu')
+            role = 'librarian';
+        
+        user = new User({ name: req.body.name, email: req.body.email, password: req.body.password ,studentID: req.body.studentID, role: role.valueOf(), });
+            
         user.save(function (err) {
             if (err) { return res.status(500).send({ success: false.valueOf(),msg: err.message }); }
 
@@ -187,19 +195,25 @@ app.get('/api/getbooks',
 
         console.log("getbooks");
 		var title = req.param("title");
-		var libId = req.param("enteredby");
+		var libId = req.param("enteredBy");
 		console.log(title +","+ libId);
-		
-		Books.find({title: title, 'enteredby._id': libId}, function (err, docs) {
+        var payload = {};
+        if(title !== undefined && libId === undefined){
+            payload = {title:title};
+        }else if(title != undefined && libId !== undefined){
+            payload = {title:title, enteredby:libId}
+        }
+    
+		Books.find(payload, function (err, docs) {
             
 			if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
-	        res.json(
-                docs
-            );
+	        res.json({
+                books:docs
+            });
 		});
 });
 
-app.delete('/api/deletebooks', function (req, res) {
+app.post('/api/deletebooks', function (req, res) {
 	console.log("deletebooks");
    	var book_id = req.body.bookId;
 
