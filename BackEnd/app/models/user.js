@@ -9,5 +9,6 @@ module.exports = mongoose.model('User', new Schema({
   isVerified: { type: Boolean, default: false },
   roles: [{ type: 'String' }],
   passwordResetToken: String,
-  passwordResetExpires: Date
+  passwordResetExpires: Date,
+  checkedBook: [{ type: mongoose.Schema.Types.ObjectId, required: true, ref: 'User' }]
 }));
