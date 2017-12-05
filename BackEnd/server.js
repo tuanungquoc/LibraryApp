@@ -165,27 +165,31 @@ app.post('/api/addbooks',
 	        Books.findOne({ author: req.body.author ,title: req.body.title }, function (err, book) {
 
 	            // Make sure user doesn't already exist
-	            if (book) return res.status(400).send({ success: false.valueOf() , msg: 'The book already exist, try editing existing.' });
+	            if (book){
+	            	
+	            	return res.status(400).send({ success: false.valueOf() , msg: 'The book already exist, try editing existing.' });
+	            }else{
 
-	            // Create and save the user
-	            book = new Books({
-	            	author: author,
-					title: title,
-					callNumber:callNumber,
-					publisher:publisher,
-					year: year,
-					location: location,
-					copies:copies,
-					status: status,
-					keywords: keywords,
-					image: image,
-					enteredby: enteredby 
-	            	});
-	            
-	            book.save(function (err) {
-	                if (err) { return res.status(500).send({ success: false.valueOf(),msg: 'Book not saved!' }); }
-	                return res.status(200).send({ success: true.valueOf(),msg: 'Book saved!' });
-	            });
+		            // Create and save the user
+		            book = new Books({
+		            	author: author,
+						title: title,
+						callNumber:callNumber,
+						publisher:publisher,
+						year: year,
+						location: location,
+						copies:copies,
+						status: status,
+						keywords: keywords,
+						image: image,
+						enteredby: enteredby 
+		            	});
+		            
+		            book.save(function (err) {
+		                if (err) { return res.status(500).send({ success: false.valueOf(),msg: 'Book not saved!' }); }
+		                return res.status(200).send({ success: true.valueOf(),msg: 'Book saved!' });
+		            });
+	            }    
 	        });
 
 });
@@ -207,6 +211,7 @@ app.get('/api/getbooks',
 		Books.find(payload, function (err, docs) {
             
 			if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
+			if(docs.length ==0){ return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
 	        res.json({
                 books:docs
             });
@@ -232,24 +237,47 @@ app.post('/api/deletebooks', function (req, res) {
 app.put('/api/updatebooks', function (req, res) {
 	console.log("editbooks");
 	var book = req.body;
+	var id = null;
 	console.log(book);
-	console.log(book.author);
-    Books.update({_id: book.id}, {
-    		"author": book.author,
-		"title": book.title,
-		"callNumber":book.callNumber,
-		"publisher":book.publisher,
-		"year": book.year,
-		"location": book.location,
-		"copies":book.copies,
-		"status": book.status,
-		"keywords": book.keywords,
-		"image": book.image,
-		"enteredby": book.enteredby
- 	}, function (err, docs){
-    		if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not updated!' }); }
-	        return res.status(200).send({  success: true.valueOf(),msg: 'Book updated!' });
-    });
+	Books.findOne({ author: req.body.oauthor ,title: req.body.otitle }, function (err, bookserver) {
+
+        // Make sure original exist and not already modified by other user.
+        if (bookserver){
+        	id = bookserver._id;
+        	console.log(id);
+        	Books.findOne({ author: req.body.author ,title: req.body.title  }, function (err, bookexisting) {
+        		console.log(bookexisting);
+
+        		if (bookexisting ){
+		        	if (!id.equals(bookexisting._id)){
+		        		console.log(bookexisting._id);
+		        		return res.status(400).send({ success: false.valueOf(),msg: 'The book already exist, try editing existing.' });
+	        		}
+        		}	
+        		else{
+			        console.log(id);
+				    Books.update({_id: id}, {
+				    	"author": book.author,
+						"title": book.title,
+						"callNumber":book.callNumber,
+						"publisher":book.publisher,
+						"year": book.year,
+						"location": book.location,
+						"copies":book.copies,
+						"status": book.status,
+						"keywords": book.keywords,
+						"image": book.image,
+						"enteredby": book.enteredby
+				 	}, function (err, docs){
+				    		if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not updated!' }); }
+					        return res.status(200).send({  success: true.valueOf(),msg: 'Book updated!' });
+				    });
+        		}});    
+        }
+        else{
+        	return res.status(404).send({ success: false.valueOf(),msg: 'Original book not found, try again' });
+        }
+	});    
 });
 
 app.post('/login',function(req,res){
