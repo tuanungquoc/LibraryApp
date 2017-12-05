@@ -249,12 +249,11 @@ app.put('/api/updatebooks', function (req, res) {
         		console.log(bookexisting);
 
         		if (bookexisting ){
-		        	if (!id.equals(bookexisting._id)){
+		        	if (!(id.equals(bookexisting._id))){
 		        		console.log(bookexisting._id);
 		        		return res.status(400).send({ success: false.valueOf(),msg: 'The book already exist, try editing existing.' });
 	        		}
         		}	
-        		else{
 			        console.log(id);
 				    Books.update({_id: id}, {
 				    	"author": book.author,
@@ -272,7 +271,7 @@ app.put('/api/updatebooks', function (req, res) {
 				    		if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not updated!' }); }
 					        return res.status(200).send({  success: true.valueOf(),msg: 'Book updated!' });
 				    });
-        		}});    
+        		});    
         }
         else{
         	return res.status(404).send({ success: false.valueOf(),msg: 'Original book not found, try again' });
