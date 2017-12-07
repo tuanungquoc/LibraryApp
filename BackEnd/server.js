@@ -80,14 +80,14 @@ app.post('/api/borrow', function(req, res) {
        const now = new Date();
        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
        BorrowBooks.find({patronId: userId}).where('returnDate').equals(null).where('borrowDate').gte(today).exec(function(err,trans2){
-            if(trans2.length >= 3 || (trans.length + bookListId.length) >3 ) {return res.status(500).send({success:false.valueOf(),msg:"You have borrowed more than 3 books in a day"});}
+            if(trans2.length >= 3 || (trans2.length + bookListId.length) >3 ) {return res.status(500).send({success:false.valueOf(),msg:"You have borrowed more than 3 books in a day"});}
             BorrowBooks.find({patronId: userId}).where('returnDate').equals(null).exec(function(err,trans1){
                 if(trans1.length >= 9 || (trans1.length + bookListId.length) > 9 ) {return res.status(500).send({success:false.valueOf(),msg:"You have been borroing more than 9 books"});}
                 BorrowBooks.find({patronId: userId}).where('bookId').in(bookListId).where('returnDate').equals(null).exec(function(err, trans){
                 if(trans.length > 0) {return res.status(500).send({ success: false.valueOf() , msg: 'Some books are already borrowed!.' });}  
                 BorrowBooks.collection.insert(borrowBookList,function(err){
                     if(err) {return res.status(500).send({ success: false.valueOf(),msg: err.message }); }
-                    res.send({success:true.valueOf(), msg:"Insert successfully!"});
+                    res.send({success:true.valueOf(), msg:"Transaction successfully!"});
                 });
             }); 
             });  
@@ -416,7 +416,8 @@ app.post('/login',function(req,res){
             message: 'Enjoy your token!',
             token: tokenHeader,
             email: user.email,
-            userID: user._id
+            userID: user._id,
+            role: user.role
         });
     });
 });
