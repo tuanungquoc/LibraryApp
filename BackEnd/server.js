@@ -11,6 +11,7 @@ var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens
 var config = require('./config'); // get our config file
 var User   = require('./app/models/user'); // get our mongoose model
 var Books   = require('./app/models/books'); // get our mongoose model
+var BorrowBooks = require('./app/models/detailstransaction');
 var crypto = require('crypto');
 var nodemailer = require('nodemailer');
 var expressValidator = require('express-validator');
@@ -36,7 +37,7 @@ app.use(morgan('dev'));
 // =======================
 // basic route
 
-var apiRoutes = express.Router(); 
+var apiRoutes = express.Router();
 
 apiRoutes.use(function(req,res,next){
     var token = req.body.token || req.query.token || req.headers['x-access-token'];
@@ -50,35 +51,91 @@ apiRoutes.use(function(req,res,next){
             }
         });
     }else{
-        return res.status(403).send({ 
-            success: false, 
-            msg: 'No token provided.' 
-        });    
+        return res.status(403).send({
+            success: false,
+            msg: 'No token provided.'
+        });
     }
 
 });
 
 app.use('/api', apiRoutes);
 
-app.get('/test', function(req, res) {
-    res.send('Hello! The API is at http://localhost:' + port + '/api');
+app.post('/api/borrow', function(req, res) {
+        var userId = req.body.patronId;
+        var bookList = req.body.books;
+        
+        if(bookList.length > 3){
+            res.status(403).send({success:false.valueOf(), msg:"There are more than 3 books"});
+        }
+        
+        //search to see if each book is borroed by patron
+       var bookListId = [];
+       var borrowBookList = [];
+       for(var i = 0 ; i < bookList.length; i++){
+            bookListId.push(bookList[i]["bookId"]);
+            borrowBookList.push(new BorrowBooks({bookId:bookList[i]["bookId"], patronId:userId, returnDate: null}));
+       }
+       //checking how many book he has been borrow for today
+       const now = new Date();
+       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+       BorrowBooks.find({patronId: userId}).where('returnDate').equals(null).where('borrowDate').gte(today).exec(function(err,trans2){
+            if(trans2.length >= 3 || (trans.length + bookListId.length) >3 ) {return res.status(500).send({success:false.valueOf(),msg:"You have borrowed more than 3 books in a day"});}
+            BorrowBooks.find({patronId: userId}).where('returnDate').equals(null).exec(function(err,trans1){
+                if(trans1.length >= 9 || (trans1.length + bookListId.length) > 9 ) {return res.status(500).send({success:false.valueOf(),msg:"You have been borroing more than 9 books"});}
+                BorrowBooks.find({patronId: userId}).where('bookId').in(bookListId).where('returnDate').equals(null).exec(function(err, trans){
+                if(trans.length > 0) {return res.status(500).send({ success: false.valueOf() , msg: 'Some books are already borrowed!.' });}  
+                BorrowBooks.collection.insert(borrowBookList,function(err){
+                    if(err) {return res.status(500).send({ success: false.valueOf(),msg: err.message }); }
+                    res.send({success:true.valueOf(), msg:"Insert successfully!"});
+                });
+            }); 
+            });  
+       });
 });
+
+
+// app.get('/api/getBorrowedBooksBy',function(req,res){
+//     console.log("getbooksborrowed");
+//     var patronId = req.param("patronId");
+    
+//     BorrowBooks.find({patronId:patronId}).where('returnDate').equals(null).select('bookId').exec(function(err,trans){
+//         if(err) {return res.status(500).send(err);}
+//         var bookIdList = [];
+//         if(trans.length > 0 ){
+//             for(var i = 0 ; i < trans.length ; i++){
+//                 var bookId = trans[i]["id"];
+//                 bookIdList.push(mongoose.Types.ObjectId(bookId));
+//             }
+//         }
+//         var temp = trans[0]["id"];
+//         var tag = [{type:String}];
+//         var temp = trans[0]["id"];
+//         Books.find({_id: {$in: [mongoose.Types.ObjectId(temp)),
+//         mongoose.Types.ObjectId('5a2759ebb2deef0affe21af2'),
+//         mongoose.Types.ObjectId('5a275a08b2deef0affe21af3')]}},function(err,trans1){
+//             if(err) {return res.status(500).send(err);}
+//             return res.send({books: trans1})
+//         });
+//     });
+// });
+
 
 app.post('/register', function(req, res) {
     req.checkBody('email', 'Enter a valid email').isEmail();
     req.checkBody('studentID','Enter a valid student ID').isNumeric();
     var errors = req.validationErrors();
     if (errors) {
-            
+
             res.status(422).send(errors);
             return;
-        } 
+        }
     //   if (errors) { return res.status(400).send(errors); }
     User.findOne({ email: req.body.email }, function (err, user) {
 
         // Make sure user doesn't already exist
         if (user) return res.status(400).send({ success: false.valueOf() , msg: 'Your email address is already associated with another account.' });
-        //parsing domain 
+        //parsing domain
         var email = req.body.email;
         var domain = email.replace(/.*@/, "");
         console.log(domain);
@@ -86,9 +143,9 @@ app.post('/register', function(req, res) {
         var role = 'patron';
         if(domain == 'sjsu.edu')
             role = 'librarian';
-        
+
         user = new User({ name: req.body.name, email: req.body.email, password: req.body.password ,studentID: req.body.studentID, role: role.valueOf(), });
-            
+
         user.save(function (err) {
             if (err) { return res.status(500).send({ success: false.valueOf(),msg: err.message }); }
 
@@ -121,20 +178,20 @@ app.post('/register', function(req, res) {
 
 app.post('/confirm',function(req,res){
     req.checkBody('email', 'Email is not valid').isEmail();
- 
-    // Check for validation errors    
+
+    // Check for validation errors
     var errors = req.validationErrors();
     if (errors) return res.status(400).send(errors);
- 
+
     // Find a matching token
     Token.findOne({ token: req.body.token }, function (err, token) {
         if (!token) return res.status(400).send({ success:false.valueOf(),type: 'not-verified', msg: 'We were unable to find a valid token. Your token my have expired.' });
- 
+
         // If we found a token, find a matching user
         User.findOne({ _id: token._userId }, function (err, user) {
             if (!user) return res.status(400).send({success:false.valueOf(), msg: 'We were unable to find a user for this token.' });
             if (user.isVerified) return res.status(400).send({ success:false.valueOf(),type: 'already-verified', msg: 'This user has already been verified.' });
- 
+
             // Verify and save the user
             user.isVerified = true;
             user.save(function (err) {
@@ -149,7 +206,7 @@ app.post('/api/addbooks',
 		function (req, res) {
 
 	        console.log("addbooks");
-	        
+
 			var author = req.body.author;
 			var title = req.body.title;
 			var callNumber = req.body.callNumber;
@@ -161,12 +218,12 @@ app.post('/api/addbooks',
 			var keywords = req.body.keywords;
 			var image = req.body.image;
 			var enteredby = req.body.enteredby;
-			
+
 	        Books.findOne({ author: req.body.author ,title: req.body.title }, function (err, book) {
 
 	            // Make sure user doesn't already exist
 	            if (book){
-	            	
+
 	            	return res.status(400).send({ success: false.valueOf() , msg: 'The book already exist, try editing existing.' });
 	            }else{
 
@@ -182,14 +239,14 @@ app.post('/api/addbooks',
 						status: status,
 						keywords: keywords,
 						image: image,
-						enteredby: enteredby 
+						enteredby: enteredby
 		            	});
-		            
+
 		            book.save(function (err) {
 		                if (err) { return res.status(500).send({ success: false.valueOf(),msg: 'Book not saved!' }); }
 		                return res.status(200).send({ success: true.valueOf(),msg: 'Book saved!' });
 		            });
-	            }    
+	            }
 	        });
 
 });
@@ -207,9 +264,9 @@ app.get('/api/getbooks',
         }else if(title != undefined && libId !== undefined){
             payload = {title:title, enteredby:libId}
         }
-    
+
 		Books.find(payload, function (err, docs) {
-            
+
 			if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
 			if(docs.length ==0){ return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
 	        res.json({
@@ -225,8 +282,8 @@ app.post('/api/deletebooks', function (req, res) {
 	//TO BE DONE
 	//CHECK IF THERES ANYONE BORROWED THIS BOOK, IF YES, FAIL AND SEND APPROPRIATE COMMENTS
 			// ELSE IF NOT, GO AHEAD
-	
-			
+
+
 	Books.remove({ _id:book_id}, function (err, docs) {
         if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
 	                return res.status(200).send({ success: true.valueOf(),msg: 'Book deleted!' });
@@ -253,7 +310,7 @@ app.put('/api/updatebooks', function (req, res) {
 		        		console.log(bookexisting._id);
 		        		return res.status(400).send({ success: false.valueOf(),msg: 'The book already exist, try editing existing.' });
 	        		}
-        		}	
+        		}
 			        console.log(id);
 				    Books.update({_id: id}, {
 				    	"author": book.author,
@@ -271,12 +328,12 @@ app.put('/api/updatebooks', function (req, res) {
 				    		if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not updated!' }); }
 					        return res.status(200).send({  success: true.valueOf(),msg: 'Book updated!' });
 				    });
-        		});    
+        		});
         }
         else{
         	return res.status(404).send({ success: false.valueOf(),msg: 'Original book not found, try again' });
         }
-	});    
+	});
 });
 
 app.post('/login',function(req,res){
@@ -284,19 +341,19 @@ app.post('/login',function(req,res){
     // Check for validation error
     var errors = req.validationErrors();
     if (errors) return res.status(400).send(errors);
- 
+
     User.findOne({ email: req.body.email }, function(err, user) {
         if (!user) return res.status(401).send({ success:false.valueOf(), msg: 'The email address ' + req.body.email + ' is not associated with any account. Double-check your email address and try again.'});
         if(req.body.password != user.password){
             return res.status(401).send({ success:false.valueOf(),msg: 'Invalid email or password' });
         }
-        
-        if (!user.isVerified){ 
-            return res.status(401).send({ success:false.valueOf(),type: 'not-verified', msg: 'Your account has not been verified.' }); 
+
+        if (!user.isVerified){
+            return res.status(401).send({ success:false.valueOf(),type: 'not-verified', msg: 'Your account has not been verified.' });
         }
- 
+
         // Login successful, write token, and send back user
-        //generate token 
+        //generate token
         const payLoad = {
             name: user.name,
             email: user.email
@@ -317,24 +374,24 @@ app.post('/login',function(req,res){
 
 app.post('/resendToken',function(req,res){
     req.checkBody('email', 'Email is not valid').isEmail();
-   
-    // Check for validation errors    
+
+    // Check for validation errors
     var errors = req.validationErrors();
     if (errors) return res.status(400).send(errors);
- 
+
     User.findOne({ email: req.body.email }, function (err, user) {
         if (!user) return res.status(400).send({ success:false.valueOf,msg: 'We were unable to find a user with that email.' });
         if (user.isVerified) return res.status(400).send({ success:false.valueOf , msg: 'This account has already been verified. Please log in.' });
- 
+
         // Create a verification token, save it, and send email
         var token = new Token({ _userId: user._id, token: crypto.randomBytes(16).toString('hex') });
- 
+
         // Save the token
         token.save(function (err) {
             if (err) { return res.status(500).send({ success:false.valueOf,msg: err.message }); }
- 
+
             // Send the email
-            
+
             var transporter = nodemailer.createTransport(
                 {
                 host: 'smtp.gmail.com',
@@ -350,7 +407,7 @@ app.post('/resendToken',function(req,res){
                 res.status(200).send({success: true.valueOf(), msg:'A verification token has been sent to ' + user.email + "."});
             });
         });
- 
+
     });
 });
 
