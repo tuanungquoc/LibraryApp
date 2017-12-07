@@ -94,31 +94,81 @@ app.post('/api/borrow', function(req, res) {
        });
 });
 
-
-// app.get('/api/getBorrowedBooksBy',function(req,res){
-//     console.log("getbooksborrowed");
-//     var patronId = req.param("patronId");
+app.put('/api/returns', function(req, res) {
+    var userId = req.body.patronId;
+    var bookList = req.body.books;
     
-//     BorrowBooks.find({patronId:patronId}).where('returnDate').equals(null).select('bookId').exec(function(err,trans){
-//         if(err) {return res.status(500).send(err);}
-//         var bookIdList = [];
-//         if(trans.length > 0 ){
-//             for(var i = 0 ; i < trans.length ; i++){
-//                 var bookId = trans[i]["id"];
-//                 bookIdList.push(mongoose.Types.ObjectId(bookId));
-//             }
-//         }
-//         var temp = trans[0]["id"];
-//         var tag = [{type:String}];
-//         var temp = trans[0]["id"];
-//         Books.find({_id: {$in: [mongoose.Types.ObjectId(temp)),
-//         mongoose.Types.ObjectId('5a2759ebb2deef0affe21af2'),
-//         mongoose.Types.ObjectId('5a275a08b2deef0affe21af3')]}},function(err,trans1){
-//             if(err) {return res.status(500).send(err);}
-//             return res.send({books: trans1})
-//         });
-//     });
-// });
+    if(bookList.length > 9){
+        res.status(403).send({success:false.valueOf(), msg:"There are more than 9 books"});
+    }
+    
+    //search to see if each book is borroed by patron
+   var bookListId = [];
+   var bookObjectIDList = [];
+   for(var i = 0 ; i < bookList.length; i++){
+        bookListId.push(bookList[i]["bookId"]);   
+        bookObjectIDList.push(mongoose.Types.ObjectId(bookList[i]["bookId"]));
+   }
+   const now = new Date();
+   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+   User.findOne({_id: {$in: [mongoose.Types.ObjectId(userId)]}},function(err,tran){
+        if(err) {return res.status(500).send({success:false.valueOf(),msg:"cannot find user"});}
+        var email = tran.email;
+        //Start updating
+        BorrowBooks.update({patronId:userId,bookId: {$in: bookListId}}, {returnDate: today},{multi: true},function(err){
+            if(err){return res.status(500).send({success:false.valueOf(),msg:"cannot return"});}
+            
+            Books.find({_id: {$in: bookObjectIDList}},function(err,trans1){
+                if(err) {return res.status(500).send(err);}
+                var transporter = nodemailer.createTransport(
+                    {
+                    host: 'smtp.gmail.com',
+                    port: 465,
+                    secure: true,
+                    auth: {
+                        user: 'tuan.ung.quoc.sjsu@gmail.com',
+                        pass: 'Grandmum123'
+                }});
+                var bookNameList = "";
+                for(var i = 0 ; i < trans1.length; i++){
+                    bookNameList = bookNameList + trans1[i].title + "\n";
+                }
+                var mailOptions = { from: 'no-reply@yourwebapplication.com', to: email, subject: 'Books Returned Confirmation', text: 'Hello,\n\n' + 'Confirm that you have returns following books:\n'+ bookNameList };
+                transporter.sendMail(mailOptions, function (err) {
+                    if (err) { return res.status(500).send({ success: true.valueOf() ,msg: err.message }); }
+                    res.status(200).send({success: true.valueOf(), msg:'Return susccessfully'});
+                });
+            });
+    
+            
+            
+            
+       });
+   });
+   
+});
+
+app.get('/api/getBooksBorrowedBy/:id',function(req,res){
+    console.log("getbooksborrowed");
+    var patronId = req.params.id;
+    
+    BorrowBooks.find({patronId:patronId}).where('returnDate').equals(null).select('bookId').exec(function(err,trans){
+        if(err) {return res.status(500).send(err);}
+        var bookIdList = [];
+        if(trans.length > 0 ){
+            for(var i = 0 ; i < trans.length ; i++){
+                bookIdList.push(mongoose.Types.ObjectId(trans[i].bookId.toString()));
+            }
+        }
+        
+        Books.find({_id: {$in: bookIdList}},function(err,trans1){
+            if(err) {return res.status(500).send(err);}
+            return res.send({books: trans1})
+        });
+
+        
+    });
+});
 
 
 app.post('/register', function(req, res) {
