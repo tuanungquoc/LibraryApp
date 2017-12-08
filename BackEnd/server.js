@@ -333,9 +333,9 @@ app.post('/api/deletebooks', function (req, res) {
 	//CHECK IF THERES ANYONE BORROWED THIS BOOK, IF YES, FAIL AND SEND APPROPRIATE COMMENTS
 			// ELSE IF NOT, GO AHEAD
 
-   	BorrowBooks.find({ bookId:book_id}, function (err, docs){
+   	BorrowBooks.find({ bookId:book_id}).where('returnDate').equals(null).exec( function (err, docs){
    		console.log(docs);
-   		if (docs){
+   		if (docs.length > 0){
    			console.log("doc exist");
    			return res.status(200).send({ success: true.valueOf(),msg: 'Book is borrowed, cant delete!' });
    		}else{
