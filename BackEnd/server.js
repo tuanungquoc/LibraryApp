@@ -333,13 +333,19 @@ app.post('/api/deletebooks', function (req, res) {
 	//CHECK IF THERES ANYONE BORROWED THIS BOOK, IF YES, FAIL AND SEND APPROPRIATE COMMENTS
 			// ELSE IF NOT, GO AHEAD
 
-
-	Books.remove({ _id:book_id}, function (err, docs) {
-        if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
-	                return res.status(200).send({ success: true.valueOf(),msg: 'Book deleted!' });
-	});
-
-});
+   	BorrowBooks.find({ bookId:book_id}, function (err, docs){
+   		console.log(docs);
+   		if (docs){
+   			console.log("doc exist");
+   			return res.status(200).send({ success: true.valueOf(),msg: 'Book is borrowed, cant delete!' });
+   		}else{
+			Books.remove({ _id:book_id}, function (err, docs) {
+		        if (err) { return res.status(404).send({ success: false.valueOf(),msg: 'Book not found!' }); }
+		        else{  return res.status(200).send({ success: true.valueOf(),msg: 'Book deleted!' });}
+			});
+   		}	
+   	});
+});   	
 
 app.put('/api/updatebooks', function (req, res) {
 	console.log("editbooks");
