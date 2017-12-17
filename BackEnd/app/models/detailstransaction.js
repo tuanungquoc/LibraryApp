@@ -6,5 +6,6 @@ module.exports = mongoose.model('BorrowBooks' , new mongoose.Schema({
     patronId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'User' },
     borrowDate: { type: Date, required: true, default: Date.now},    
     returnDate: Date,
+    dueDate: Date,
     renew: {type: Number,required:true, default: 0 }
 }));
