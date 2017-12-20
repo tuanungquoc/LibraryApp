@@ -134,6 +134,62 @@ public class ConfirmationFragment extends Fragment {
         });
 
 
+        textViewLinkResendToken.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                //checking to see if email and token is not empty
+                if(inputUtilities.isTxtBoxEmpty(confirmEmailTextInputEditText,confirmEmailTextInputLayout,"Email cannot be empty")){
+                    return;
+                }
+
+                if(!inputUtilities.isEmail(confirmEmailTextInputEditText,confirmEmailTextInputLayout,"Email is not right format")){
+                    return;
+                }
+
+
+                //send a request to confirm account
+                JSONObject payload = new JSONObject();
+                try {
+                    payload.put("email" , confirmEmailTextInputEditText.getText().toString());
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+                JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST,
+                        API.resendTokenURL(), payload,
+                        new Response.Listener<JSONObject>() {
+                            @Override
+                            public void onResponse(JSONObject response) {
+                                try {
+                                    JSONObject object = new JSONObject(response.toString());
+                                    Toast.makeText(getActivity(),object.getString("msg"), Toast.LENGTH_LONG).show();
+
+                                } catch (Exception ex) {
+                                }
+                            }
+                        },
+                        new Response.ErrorListener() {
+                            @Override
+                            public void onErrorResponse(VolleyError error) {
+                                JSONObject jsonObj = null;
+                                NetworkResponse networkResponse = error.networkResponse;
+                                if(networkResponse != null) {
+                                    try {
+                                        jsonObj = new JSONObject(new String(networkResponse.data));
+                                        Toast.makeText(getActivity(), jsonObj.getString("msg"), Toast.LENGTH_LONG).show();
+                                    } catch (JSONException e) {
+                                        e.printStackTrace();
+                                    }
+                                }else{
+                                    Toast.makeText(getActivity(), "There is an error. Please contact admin for more info", Toast.LENGTH_LONG).show();
+
+                                }
+                            }
+                        });
+                NetworkSingleton.get(getActivity()).addRequest(jsonObjectRequest, "Resend Token");
+            }
+        });
+
         return v;
     }
 }

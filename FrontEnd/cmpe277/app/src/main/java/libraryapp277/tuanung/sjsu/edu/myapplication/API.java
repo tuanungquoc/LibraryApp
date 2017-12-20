@@ -6,7 +6,7 @@ package libraryapp277.tuanung.sjsu.edu.myapplication;
 
 public class API {
 
-        private static final String URL= "http://10.0.2.2:8080";
+        private static final String URL= "http://35.185.86.217:8080";
         public static final String GetBooks = URL+"/api/getbooks";
         public static final String PostBooks = URL+"/api/addbooks";
         public static final String UpdateBooks = URL+"/api/updatebooks";
