@@ -80,6 +80,7 @@ app.post('/api/waitingList/onBook/:bookId/byPatron/:patronId/copies/:copy', func
                 //     res.status(200).send({success:true.valueOf(), msg: 'Added to waiting list successfully' });                        
                 // });
             }
+            //check if there is any reservation
             BookWaitingList.findOne({bookId:bookId, patronId:patronId},function(err,bookWaitList){
                 if(bookWaitList){
                     //you are already in wait list
@@ -99,35 +100,8 @@ app.post('/api/waitingList/onBook/:bookId/byPatron/:patronId/copies/:copy', func
                     if (err) { return res.status(500).send({ success: false.valueOf(),msg: err.message }); }
                     return res.send({success:true.valueOf(), msg: 'Added to waiting list successfully' });                        
                 });
-            });
-        
-
-
-
-            // BorrowBooks.findOne({bookId:bookId}).where('returnDate').ne(null).exec(function(err,borrowedBook){
-            //     if(err) {return res.status(500).send(err);}
-            //     if(borrowedBookByPatron){
-            //         return res.status(400).send({ success: false.valueOf() , msg: 'This book is available to borrow' });                                                        
-            //     }
-
-            //     //Search to see if you arealy in wait list
-            //     BookWaitingList.findOne({bookId:bookId, patronId:patronId},function(err,bookWaitList){
-            //         if(bookWaitList){
-            //             //you are already in wait list
-            //             return res.status(400).send({ success: false.valueOf() , msg: 'You are already in the waiting list' });                                                                                
-            //         }
-            //         bookWaitingList.save(function(err){
-            //             if (err) { return res.status(500).send({ success: false.valueOf(),msg: err.message }); }
-            //             return res.send({success:true.valueOf(), msg: 'Added to waiting list successfully' });                        
-            //         });
-            //     });
-                
-            // });          
-            
-        });
-             
-        //search to see if this book is alray in this patron's wait list
-       
+            }); 
+        });       
 
 });
 
@@ -149,69 +123,118 @@ app.get('/api/getWaitingListOf/:patronId',function(req,res){
     });
 });
 
-app.post('/api/borrow', function(req, res) {
+app.post('/api/borrowabook', function(req, res) {
         var userId = req.body.patronId;
-        var bookList = req.body.books;
-        
-        if(bookList.length > 3){
-            res.status(403).send({success:false.valueOf(), msg:"There are more than 3 books"});
-        }
-        
-        //search to see if each book is borroed by patron
-       var bookListId = [];
-       var bookIdList = [];
-       var borrowBookList = [];
-       var copies = []
-       for(var i = 0 ; i < bookList.length; i++){
-            bookListId.push(bookList[i]["bookId"]);
-            bookIdList.push(mongoose.Types.ObjectId(bookList[i].bookId.toString()));            
-            borrowBookList.push(new BorrowBooks({bookId:bookList[i]["bookId"], patronId:userId, returnDate: null}));
-            copies.push(bookList[i]["copies"]);
-            
-       }
-
-       //checking how many book he has been borrow for today
-       const now = new Date();
-       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-       //checking to see if there is any one on the waiting list
-       BookWaitingList.find({bookId: {$in: bookListId}},function(err,trans1){
-            if(err) {return res.status(500).send(err);}
-            if(trans1.length > 0) {return res.status(400).send({ success: false.valueOf() , msg: 'There are waiting list in these books' });} 
-            //check to see if this book is reserved for someone
-            BookReservation.find({bookId: {$in: bookListId}},function(err,reservations){
-                if(err) {return res.status(500).send(err);}
-                if(reservations > 0 ) {return res.status(400).send({ success: false.valueOf() , msg: 'These books are reserved!!' });} 
-                
-                BorrowBooks.aggregate({"$match":{$and: [ {"bookId": {"$in" : bookIdList}},{"returnDate":null}]}},{"$group":{_id:"$bookId",count:{$sum:1}}},{$sort: {_id: -1}}).exec(function(err,countings){
-                    if(err) {return res.status(500).send(err);}
-                    for(var i = 0 ; i < countings.length ; i++){
-                        if(countings[i]["_id"] == bookListId[i]){
-                            if(copies[i] == countings[i]["count"])
-                                return res.status(400).send({ success: false.valueOf() , msg: 'There are no copies in some books' });
-                        }
+        var book = req.body.book;
+        var borrowBook = new BorrowBooks({patronId:userId, bookId:book.bookId, returnDate:null});
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        //checking to see if it is borrowed
+        BorrowBooks.findOne({bookId:book.bookId}).where('returnDate').equals(null).exec(function(err,foundBook){
+            if(err){
+                return res.status(500).send({ success: false.valueOf() , msg: 'Please try to check out this book again' });                                                                
+            }
+            if(foundBook){
+                return res.status(400).send({ success: false.valueOf() , msg: 'This book is borrowed by someone else' });                                                                
+            }
+            BookReservation.findOne({bookId: book.bookId},function(err,reservation){
+                if(reservation){
+                    if(reservation.patronId.toString() != userId ){
+                        //if it is not my reservation, then cancel check out
+                        return res.status(400).send({ success: false.valueOf() , msg: "This book "+book.title +" is reserved by some body else" });
                     }
-                    //If all books in the transaction still have copies, then checking to see if:
-                    // how many books this patron borrows in one day
-                    // how many books this patron borrows over all
-                    // if any books in this transaction he already borrowed
-                    BorrowBooks.find({patronId: userId}).where('returnDate').equals(null).where('borrowDate').gte(today).exec(function(err,trans2){
-                        if(trans2.length >= 3 || (trans2.length + bookListId.length) >3 ) {return res.status(500).send({success:false.valueOf(),msg:"You have borrowed more than 3 books in a day"});}
-                        BorrowBooks.find({patronId: userId}).where('returnDate').equals(null).exec(function(err,trans1){
-                            if(trans1.length >= 9 || (trans1.length + bookListId.length) > 9 ) {return res.status(500).send({success:false.valueOf(),msg:"You have been borrowing more than 9 books"});}
-                            BorrowBooks.find({patronId: userId}).where('bookId').in(bookListId).where('returnDate').equals(null).exec(function(err, trans){
-                            if(trans.length > 0) {return res.status(500).send({ success: false.valueOf() , msg: 'Some books are already borrowed!.' });}  
-                            BorrowBooks.collection.insert(borrowBookList,function(err){
-                                if(err) {return res.status(500).send({ success: false.valueOf(),msg: err.message }); }
-                                res.send({success:true.valueOf(), msg:"Transaction successfully!"});
+                    //remove myself out of reservation then checking out
+                    BookReservation.remove({_id:reservation._id},function(err,resv){
+                        if(err) {
+                            return res.status(500).send({ success: false.valueOf() , msg: 'There is something wrong. Please check out again this book:'+book.title });                                
+                        }
+                            //start checking out
+                        borrowBook.save(function(err){
+                            if(err) {
+                                return res.status(500).send({ success: false.valueOf() , msg: 'There is something wrong. Please check out again this book:'+book.title });
+                                                                     
+                            }
+                            console.log(userId);
+
+                            User.findOne({_id: userId},function(err,user){
+                                if(err){
+                                    console.log("there are some err");
+                                }
+                                if(user){
+                                    console.log("get into here");
+                                    var transporter = nodemailer.createTransport(
+                                        {
+                                        host: 'smtp.gmail.com',
+                                        port: 465,
+                                        secure: true,
+                                        auth: {
+                                            user: 'tuan.ung.quoc.sjsu@gmail.com',
+                                            pass: 'Grandmum123'
+                                    }});
+                                    var mailOptions = { from: 'no-reply@yourwebapplication.com', to: user.email, subject: 'Book checkout', text: 'Hello,\n\n' + 'You are checking out succesfully!!\n' };
+                                    transporter.sendMail(mailOptions,function(err){
+                                        return res.send({ success: true.valueOf() , msg: 'Succeed to check out' });
+                                    });
+                                }
                             });
-                        }); 
+        
+                            
+                        });
+                    });    
+                }else{
+                    BookWaitingList.findOne({bookId:book.bookId},function(err,bookWaitList){
+                        if(err){
+                            return res.status(500).send({ success: false.valueOf() , msg: 'There is something wrong. Please check out again this book:'+book.title });                                                                
+                        }
+                        if(bookWaitList){
+                            return res.status(400).send({ success: false.valueOf() , msg: "This book "+book.title +" has a wait list" });                        
+                        }
+                        BorrowBooks.find({patronId: userId}).where('returnDate').equals(null).where('borrowDate').gte(today).exec(function(err,trans2){
+                            if(trans2.length >= 3 ) {return res.status(400).send({success:false.valueOf(),msg:"You have borrowed more than 3 books in a day"});}
+                            BorrowBooks.find({patronId: userId}).where('returnDate').equals(null).exec(function(err,trans1){
+                                if(trans1.length >= 9 ) {return res.status(400).send({success:false.valueOf(),msg:"You have been borrowing more than 9 books"});}
+                                BorrowBooks.findOne({patronId: userId}).where('bookId').equals(book.bookId).where('returnDate').equals(null).exec(function(err, trans){
+                                    if(err) { return res.status(500).send({ success: false.valueOf() , msg: 'Please try to check out this book again' });}                                                           
+
+                                    if(trans) {return res.status(400).send({ success: false.valueOf() , msg: 'You already borrowed ' + book.title +"." });}  
+                                    //
+                                    borrowBook.save(function(err){
+                                        if(err) {
+                                            return res.status(500).send({ success: false.valueOf() , msg: 'There is something wrong. Please check out again this book:'+book.title });                                        
+                                        }
+                                        User.findOne({_id: userId},function(err,user){
+                                            if(err){
+                                                console.log("there are some err");
+                                            }
+                                            if(user){
+                                                console.log("get into here");
+                                                var transporter = nodemailer.createTransport(
+                                                    {
+                                                    host: 'smtp.gmail.com',
+                                                    port: 465,
+                                                    secure: true,
+                                                    auth: {
+                                                        user: 'tuan.ung.quoc.sjsu@gmail.com',
+                                                        pass: 'Grandmum123'
+                                                }});
+                                                var mailOptions = { from: 'no-reply@yourwebapplication.com', to: user.email, subject: 'Book checkout', text: 'Hello,\n\n' + 'You are checking out succesfully!!!\n' };
+                                                transporter.sendMail(mailOptions,function(err){
+                                                    return res.send({ success: true.valueOf() , msg: 'Succeed to check out' });
+                                                });
+                                            }
+                                        });
+                                    });
+                                }); 
+                            });  
                         });  
-                   });     
-                });
+        
+                    });
+                }
             });
-            // Look for number of copies available for each book
-           
-       });
+        });
+        //Checking book reservation
+      
+
 });
 
 app.put('/api/returns', function(req, res) {
@@ -238,6 +261,10 @@ app.put('/api/returns', function(req, res) {
         BorrowBooks.update({patronId:userId,bookId: {$in: bookListId}}, {returnDate: today},{multi: true},function(err){
             if(err){return res.status(500).send({success:false.valueOf(),msg:"cannot return"});}
             errMsg = errMsg + "Books are return successfully. \n"
+            //might trigger another call back to process a transaction
+            // can bt put in another thread for reservations
+            reservationProcess(doingReservation,bookObjectIDList);
+            //
             Books.find({_id: {$in: bookObjectIDList}},function(err,trans1){
                 if(err) {return res.status(500).send(err);}
                 var transporter = nodemailer.createTransport(
@@ -269,7 +296,7 @@ app.get('/api/getBooksBorrowedBy/:id',function(req,res){
     console.log("getbooksborrowed");
     var patronId = req.params.id;
     
-    BorrowBooks.find({patronId:patronId}).where('returnDate').equals(null).select('bookId').exec(function(err,trans){
+    BorrowBooks.find({patronId:patronId}).where('returnDate').equals(null).sort([['bookId', -1]]).exec(function(err,trans){
         if(err) {return res.status(500).send(err);}
         var bookIdList = [];
         if(trans.length > 0 ){
@@ -278,15 +305,82 @@ app.get('/api/getBooksBorrowedBy/:id',function(req,res){
             }
         }
         
-        Books.find({_id: {$in: bookIdList}},function(err,trans1){
+        Books.find({_id: {$in: bookIdList}}).sort([['_id', -1]]).exec(function(err,trans1){
             if(err) {return res.status(500).send(err);}
-            return res.send({books: trans1})
+            var convertedJSON = JSON.parse(JSON.stringify(trans1));
+            for(var i = 0 ; i < trans1.length ; i++){
+                var temp = trans[i];
+                var temp2 = trans1[i];
+                if(trans1[i]._id.toString() == trans[i].bookId.toString()){
+                    convertedJSON[i].dueDate = trans[i].dueDate;
+                }
+            }
+            return res.send({books: convertedJSON})
         });
 
         
     });
 });
 
+app.get('/api/getBooksReservedBy/:id',function(req,res){
+    console.log("Book reservation");
+    var patronId = req.params.id;
+    
+    BookReservation.find({patronId:patronId}).exec(function(err,trans){
+        if(err) {return res.status(500).send(err);}
+        var bookIdList = [];
+        if(trans.length > 0 ){
+            for(var i = 0 ; i < trans.length ; i++){
+                bookIdList.push(mongoose.Types.ObjectId(trans[i].bookId.toString()));
+            }
+        }
+        
+        Books.find({_id: {$in: bookIdList}}).sort([['_id', -1]]).exec(function(err,trans1){
+            if(err) {return res.status(500).send(err);}
+            var convertedJSON = JSON.parse(JSON.stringify(trans1));
+            for(var i = 0 ; i < trans1.length ; i++){
+                var temp = trans[i];
+                var temp2 = trans1[i];
+                if(trans1[i]._id.toString() == trans[i].bookId.toString()){
+                    convertedJSON[i].dueDate = trans[i].dueDate;
+                }
+            }
+            return res.send({books: convertedJSON})
+        });
+
+        
+    });
+});
+
+app.put('/api/renew/:id/:patronId',function(req,res){
+    var bookId = req.params.id;
+    var patronId = req.params.patronId;
+    BorrowBooks.findOne({bookId:bookId, patronId:patronId}).where('returnDate').equals(null).exec(function(err,borrowBook){
+        if(err) return res.status(500).send({ success: false.valueOf(), msg:"Please try to renew again"});
+         if(borrowBook){
+             if(borrowBook.renew >= 2)
+                return res.status(400).send({ success: false.valueOf(), msg:"This book is already renewed twice!"});
+            //checking if the current date + 5days > dueDate
+            var someDate = new Date();
+            var numberOfDaysToAdd = 5;
+            someDate.setDate(someDate.getDate() + numberOfDaysToAdd); 
+            var test2 = borrowBook.dueDate;
+            var test = someDate.getTime() -  test2.getTime();
+            if( someDate.getTime() -  test2.getTime() < 0 )
+                return res.status(400).send({ success: false.valueOf(), msg:"This book is too early to renew!"});
+            var updatedBook = borrowBook;
+            updatedBook.dueDate = borrowBook.dueDate.setDate(borrowBook.dueDate.getDate() + 30);
+            updatedBook.renew = borrowBook.renew + 1;
+            BorrowBooks.update({_id:borrowBook._id},
+                updatedBook,
+                function(err,doc){
+                    if(err) return res.status(500).send({ success: false.valueOf(), msg:"Please try to renew again"});
+                    return res.status(200).send({ success: true.valueOf(), msg:updatedBook.dueDate });
+            });
+        }
+
+    });
+});
 
 app.post('/register', function(req, res) {
     req.checkBody('email', 'Enter a valid email').isEmail();
@@ -548,7 +642,8 @@ app.post('/login',function(req,res){
             token: tokenHeader,
             email: user.email,
             userID: user._id,
-            role: user.role
+            role: user.role,
+            name: user.name
         });
     });
 });
@@ -594,6 +689,187 @@ app.post('/resendToken',function(req,res){
         });
 
     });
+});
+
+
+var doingReservation = function(data) {
+        if(data.length > 0){
+            var reservationList = [] ;
+            var waitingList = [];
+            var patronList = [];
+            BookWaitingList.aggregate({"$match":{"bookId": {"$in" : data}}},{"$group":{_id:"$bookId",  patronId:{$first:'$patronId'},waitlistId:{$first:'$_id'} ,firstCome: { $min: "$waitedDate" }}}).exec(function(err,firstComes){
+                 //insert multiple documents into BookReservation table
+                for(var i = 0 ; i < firstComes.length ;i++){
+                     reservationList.push(new BookReservation({bookId:firstComes[i]._id,patronId:firstComes[i].patronId}));
+                     waitingList.push(firstComes[i].waitlistId);
+                     patronList.push(firstComes[i].patronId);
+                }
+                BookReservation.collection.insert(reservationList,function(err){
+                    if(err) {
+                        console.log(err);
+                    }else{
+                        //Find all user
+                        User.find({_id: {$in: patronList}},function(err,users){
+                            if(err){
+                                console.log("there are some err");
+                            }
+                            for(var j = 0 ; j < users.length ; j++){
+                                //seding mail to each of them
+                                var transporter = nodemailer.createTransport(
+                                    {
+                                    host: 'smtp.gmail.com',
+                                    port: 465,
+                                    secure: true,
+                                    auth: {
+                                        user: 'tuan.ung.quoc.sjsu@gmail.com',
+                                        pass: 'Grandmum123'
+                                }});
+                                var mailOptions = { from: 'no-reply@yourwebapplication.com', to: users[j].email, subject: 'Book reservation', text: 'Hello,\n\n' + 'Some books are reserved for you!!!\n' };
+                                transporter.sendMail(mailOptions);
+                            }
+    
+                            BookWaitingList.remove({_id: {$in: waitingList}},function(err,docs){
+                                console.log("Transaction successfully!");
+                            });
+                        });
+                    }
+                });
+                 
+            });
+        }
+};
+
+  
+var reservationProcess = function(callback, returnBookList) {
+    callback( returnBookList); // I dont want to throw an error, so I pass null for the error argument
+};
+
+
+var dueDateProcess = function(delta){
+    var futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + delta);
+    BorrowBooks.find({"dueDate":{$gt: futureDate}}).where('returnDate').equals(null).exec(function(err,futureDueBooks){
+        if(err){
+            console.log(err);
+            
+        }else{
+            var listPatronId = [];
+            for(var i = 0 ; i<futureDueBooks.length ; i++){
+                var timeDiff = futureDueBooks[i].dueDate.getTime() - futureDate.getTime();
+                var diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24)); 
+                if(diffDays <= 5){
+                    //email to remind
+                    listPatronId.push(futureDueBooks[i].patronId);
+                }
+            }
+            if(listPatronId.length > 0){
+                User.find({_id: {$in: listPatronId}},function(err,users){
+                    if(err){
+                        console.log("there are some err");
+                    }
+                    for(var j = 0 ; j < users.length ; j++){
+                        //seding mail to each of them
+                        var transporter = nodemailer.createTransport(
+                            {
+                            host: 'smtp.gmail.com',
+                            port: 465,
+                            secure: true,
+                            auth: {
+                                user: 'tuan.ung.quoc.sjsu@gmail.com',
+                                pass: 'Grandmum123'
+                        }});
+                        var mailOptions = { from: 'no-reply@yourwebapplication.com', to: users[j].email, subject: 'Book due', text: 'Hello,\n\n' + 'Some books are due soon!!!\n' };
+                        transporter.sendMail(mailOptions);
+                    }
+                });
+            }
+        }
+    });
+};
+
+var borrowedBookProcess = function(delta){
+    //find all borrowed books overdue
+    var futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + delta);
+
+    BorrowBooks.find({"dueDate":{$lt: futureDate}}).where('returnDate').equals(null).exec(function(err,overDueBooks){
+            //Get all patron id
+            var listBorrowedBooks = [];
+            for(var i = 0 ; i < overDueBooks.length ; i++){
+                //calculate for each book how many days are overdue
+                var timeDiff = futureDate.getTime() - overDueBooks[i].dueDate.getTime();
+                var diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24)); 
+                listBorrowedBooks.push({id:overDueBooks[i]._id, fine: diffDays});
+            }
+            updateFine(listBorrowedBooks);
+    });
+};
+var updateFine = function(listBorrowedBooks){
+    if(listBorrowedBooks.length > 0){
+        BorrowBooks.findOne({_id:listBorrowedBooks[listBorrowedBooks.length - 1].id}).exec(function(err,borrow){
+            if(borrow){
+                //get current balance
+                BorrowBooks.update({_id:borrow._id},
+                    {
+                        "fine":listBorrowedBooks[listBorrowedBooks.length - 1].fine
+				 	},
+                ).exec(function(err,count){
+                        //rempve the last element in the array
+                        console.log(count);
+                        listBorrowedBooks.pop()
+                        updateFine(listBorrowedBooks);
+                });
+            }
+        });
+    }
+}
+
+var reservationProcessCronJon = function(delta){
+    //find all reservations books that having more than 3 days
+    var futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + delta);
+    var bookIdList = [];
+    BookReservation.find({"dueDate":{$lt: futureDate}}).exec(function(err,reservations){
+        var reservationsId = [];
+        if(reservations.length > 0){
+            for(var i =0 ; i<reservations.length;i++){
+                bookIdList.push(reservations[i].bookId);
+                reservationsId.push(reservations[i]._id);
+            }
+        }
+        //remove this list of reservation
+        if(reservationsId.length > 0){
+            BookReservation.remove({_id: {$in : reservationsId}},function(err,docs){
+                if(err) console.log(err);
+                else{
+                    doingReservation(bookIdList);
+                }
+            });
+        }   
+    });
+};
+
+app.get('/api/cronjob/:delta',function(req,res){
+    var delta = Number(req.params.delta);
+    borrowedBookProcess(delta);
+    reservationProcessCronJon(delta);
+    dueDateProcess(delta);
+    res.send({msg:'ok'});
+});
+
+app.get('/api/balance/:patronId',function(req,res){
+    var patronId = req.params.patronId;
+    //find all fine of all books that are not returned
+    BorrowBooks.find({patronId:patronId}).where('returnDate').equals(null).exec(function(err,listBooks){
+            if(err) {return res.status(500).send({success:false.valueOf(),msg:'Please try to view again!'});}
+            var fines = 0;
+            for(var i = 0 ; i < listBooks.length ; i++){
+                fines = fines + listBooks[i].fine;
+            }
+            return res.status(200).send({success:true.valueOf(),msg:fines});
+
+    });
+
 });
 
 

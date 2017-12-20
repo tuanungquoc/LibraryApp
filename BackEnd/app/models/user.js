@@ -10,5 +10,6 @@ module.exports = mongoose.model('User', new Schema({
   isVerified: { type: Boolean, default: false },
   role: String,
   passwordResetToken: String,
-  passwordResetExpires: Date
+  passwordResetExpires: Date,
+  balance: {type:Number, default:0}
 }));
