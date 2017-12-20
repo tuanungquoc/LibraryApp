@@ -5,26 +5,41 @@
     <android.support.v7.widget.AppCompatButton
         android:id="@+id/appCompatButtonSearchBorrowedBook"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="80dp"
         android:layout_margin="20dp"
         android:background="@color/colorTextHint"
-        android:text="Search Book" />
+        android:text="@string/text_patron_search_feature" />
 
     <android.support.v7.widget.AppCompatButton
         android:id="@+id/appCompatButtonViewBorrowedBook"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="80dp"
         android:layout_margin="20dp"
         android:background="@color/colorTextHint"
-        android:text="View Borrowed Book" />
+        android:text="@string/text_patron_view_borrowed_feature" />
 
     <android.support.v7.widget.AppCompatButton
         android:id="@+id/appCompatButtonViewBookWaitingList"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="80dp"
         android:layout_margin="20dp"
         android:background="@color/colorTextHint"
-        android:text="View My Wait List Books" />
+        android:text="@string/text_patron_view_waitlist_feature" />
 
+    <android.support.v7.widget.AppCompatButton
+        android:id="@+id/appCompatButtonViewBookReservedList"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:layout_margin="20dp"
+        android:background="@color/colorTextHint"
+        android:text="@string/text_patron_view_reservation_feature" />
+
+    <android.support.v7.widget.AppCompatButton
+        android:id="@+id/appCompatButtonViewBalanceList"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:layout_margin="20dp"
+        android:background="@color/colorTextHint"
+        android:text="@string/text_patron_view_balance_feature" />
 
 </LinearLayout>

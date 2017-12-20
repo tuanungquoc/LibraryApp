@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.widget.TextView;
 
 import libraryapp277.tuanung.sjsu.edu.myapplication.generalutilities.SessionManagement;
 import libraryapp277.tuanung.sjsu.edu.myapplication.librarian.LibrarianMainFragment;
@@ -17,13 +18,15 @@ import libraryapp277.tuanung.sjsu.edu.myapplication.patron.PatronMainFragment;
 public class MainActivity extends AppCompatActivity {
 
     private SessionManagement session;
+    TextView welcomeText;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         session = new SessionManagement(getApplicationContext());
         session.loginValidation();
-
+        welcomeText =(TextView) findViewById(R.id.textViewWelcome);
+        welcomeText.setText("Welcome:" + session.getSessionDetails().get(SessionManagement.KEY_USER_NAME));
         FragmentManager fm = getSupportFragmentManager();
         Fragment fragment = fm.findFragmentById(R.id.fragmentContainer);
         if(fragment == null){

@@ -15,7 +15,12 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.TimeZone;
 
 import libraryapp277.tuanung.sjsu.edu.myapplication.R;
 import libraryapp277.tuanung.sjsu.edu.myapplication.Book;
@@ -45,6 +50,7 @@ public class CustomPatronBorrowbaleBookListAdapter extends ArrayAdapter<Book>{
         TextView dueDate;
         LinearLayout dueDateLayout;
         CheckBox checkBox;
+
     }
 
     public CustomPatronBorrowbaleBookListAdapter(ArrayList<Book> data, Context context) {
@@ -81,13 +87,7 @@ public class CustomPatronBorrowbaleBookListAdapter extends ArrayAdapter<Book>{
             viewHolder.keywords = (TextView) convertView.findViewById(R.id.patronSearchKeywords);
             viewHolder.image = (ImageView) convertView.findViewById(R.id.patronSearchBookCover);
             viewHolder.checkBox = (CheckBox) convertView.findViewById(R.id.bookSelectionCheckBox);
-            viewHolder.checkBox.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    CheckBox cb = (CheckBox) view;
-                    dataModel.setIsSelect(cb.isChecked());
-                }
-            });
+
             viewHolder.dueDate = (TextView) convertView.findViewById(R.id.patronDueDate);
             viewHolder.dueDateLayout = (LinearLayout) convertView.findViewById(R.id.layoutDueDate);
 
@@ -109,8 +109,27 @@ public class CustomPatronBorrowbaleBookListAdapter extends ArrayAdapter<Book>{
         viewHolder.status.setText("Status: "+dataModel.getStatus());
         viewHolder.location.setText("Location: "+dataModel.getLocation());
         viewHolder.keywords.setText("Keywords: "+dataModel.getKeywords());
+        viewHolder.checkBox.setChecked(dataModel.getIsSelected());
+        viewHolder.checkBox.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                CheckBox cb = (CheckBox) view;
+                dataModel.setIsSelect(cb.isChecked());
+            }
+        });
         if(dataModel instanceof BorrowedBook){
-            viewHolder.dueDate.setText(((BorrowedBook)dataModel).getDueDate());
+            String temp = ((BorrowedBook)dataModel).getDueDate();
+            DateFormat utcFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+            utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+
+            try {
+                Date date = utcFormat.parse(((BorrowedBook)dataModel).getDueDate());
+                DateFormat pstFormat = new SimpleDateFormat("yyyy-MM-dd");
+                pstFormat.setTimeZone(TimeZone.getTimeZone("PST"));
+                viewHolder.dueDate.setText(pstFormat.format(date));
+            } catch (ParseException e) {
+                viewHolder.dueDate.setText(((BorrowedBook)dataModel).getDueDate());
+            }
         }else{
             viewHolder.dueDateLayout.setVisibility(View.GONE);
         }

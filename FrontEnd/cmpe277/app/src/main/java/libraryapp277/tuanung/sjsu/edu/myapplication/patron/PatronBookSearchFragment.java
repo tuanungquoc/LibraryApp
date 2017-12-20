@@ -6,7 +6,6 @@ import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -63,7 +62,11 @@ public class PatronBookSearchFragment extends Fragment {
 
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
-        getActivity().getMenuInflater().inflate(R.menu.menu_patron_book_list,menu);
+        if(feature.equals(R.string.text_patron_search_feature+""))
+            getActivity().getMenuInflater().inflate(R.menu.menu_patron_book_list_search,menu);
+        if(feature.equals(R.string.text_patron_view_borrowed_feature +""))
+            getActivity().getMenuInflater().inflate(R.menu.menu_patron_book_list_renew,menu);
+
     }
 
     @Override
@@ -86,6 +89,16 @@ public class PatronBookSearchFragment extends Fragment {
                 }
                 volleyNetworkBookWaitingList(url);
                 return true;
+            case R.id.renew:
+                int position1 = ((AdapterView.AdapterContextMenuInfo)info).position;
+                Log.d("Position", String.valueOf(position1));
+                Book temp1=PatronBookListSingleton.get(getActivity()).getBooks().get(position1);
+                String url1 = API.RenewBook +
+                        "/" + temp1.getId() +
+                        "/" + session.getSessionDetails().get(SessionManagement.KEY_USER_ID) ;
+                JSONObject payload1 = new JSONObject();
+                volleyNetworkBookRenew(url1,temp1);
+                return true;
             default:
                 return super.onContextItemSelected(item);
         }
@@ -105,18 +118,23 @@ public class PatronBookSearchFragment extends Fragment {
         adapter= new CustomPatronBorrowbaleBookListAdapter(PatronBookListSingleton.get(getActivity()).getBooks(),getActivity());
         searchPatronBookList.setAdapter(adapter);
         patronCheckOutBtn = (Button) v.findViewById(R.id.patronCheckOutBtn);
-        if(!feature.equals("Search Book")){
+        if(!feature.equals(R.string.text_patron_view_waitlist_feature +""))
+            registerForContextMenu(searchPatronBookList);
+
+        if(!feature.equals(R.string.text_patron_search_feature +"")){
+
             searchingLayout.setVisibility(View.GONE);
-            if(feature.equals("View Borrowed Book")) {
+            if(feature.equals(R.string.text_patron_view_borrowed_feature + "")) {
                 patronCheckOutBtn.setText("Return");
                 volleyNetworkToGetBookList(API.GetBorrowedBooks + "/" + session.getSessionDetails().get(SessionManagement.KEY_USER_ID));
             }else{
                 patronCheckOutBtn.setVisibility(View.GONE);
-                volleyNetworkToGetBookList(API.GetMyWaitList + "/" + session.getSessionDetails().get(SessionManagement.KEY_USER_ID));
-
+                if(feature.equals(R.string.text_patron_view_waitlist_feature+""))
+                    volleyNetworkToGetBookList(API.GetMyWaitList + "/" + session.getSessionDetails().get(SessionManagement.KEY_USER_ID));
+                if(feature.equals(R.string.text_patron_view_reservation_feature +""))
+                    volleyNetworkToGetBookList(API.ReserveBooks + "/" + session.getSessionDetails().get(SessionManagement.KEY_USER_ID));
             }
         }else{
-            registerForContextMenu(searchPatronBookList);
             searchSubmitBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
@@ -141,7 +159,7 @@ public class PatronBookSearchFragment extends Fragment {
         patronCheckOutBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(feature.equals("Search Book")) {
+                if(feature.equals(R.string.text_patron_search_feature +"")) {
                     processBookForCheckingOut();
                 }else{
                     processBookForReturn();
@@ -182,16 +200,15 @@ public class PatronBookSearchFragment extends Fragment {
         JSONObject payload = new JSONObject();
         try {
             payload.put("patronId", session.getSessionDetails().get(SessionManagement.KEY_USER_ID));
-            JSONArray bookList = new JSONArray();
             for (int i = 0; i < bookSelectedList.size(); i++) {
                 JSONObject obj = new JSONObject();
                 obj.put("bookId", bookSelectedList.get(i).getId());
-                obj.put("copies",bookSelectedList.get(i).getCopies());
-                bookList.put(obj);
+                obj.put("title",bookSelectedList.get(i).getTitle());
+                payload.put("book", obj);
+                //call a network
+                volleyNetworkToCheckoutBooks(API.CheckoutBooks, payload);
             }
-            payload.put("books", bookList);
-            //call a network
-            volleyNetworkToCheckoutBooks(API.CheckoutBooks, payload);
+
 
         } catch (JSONException e) {
             e.printStackTrace();
@@ -249,7 +266,9 @@ public class PatronBookSearchFragment extends Fragment {
                     try {
                         for(int i = 0; i < bookList.length(); i++) {
                             JSONObject objects = bookList.getJSONObject(i);
-                            if(feature.equals("Search Book")) {
+                            if(feature.equals(R.string.text_patron_search_feature + "") ||
+                                    feature.equals(R.string.text_patron_view_waitlist_feature + "") ||
+                                        feature.equals(R.string.text_patron_view_reservation_feature + "") ) {
                                 PatronBookListSingleton.get(getActivity()).addBook(new Book(objects.getString("_id"),
                                         objects.getString("author"),
                                         objects.getString("title"),
@@ -274,7 +293,7 @@ public class PatronBookSearchFragment extends Fragment {
                                         objects.getString("status"),
                                         objects.getString("keywords"),
                                         objects.getString("image"),
-                                        "Dec 19th",
+                                        objects.getString("dueDate"),
                                         session.getSessionDetails().get(SessionManagement.KEY_USER_ID)));
                             }
                         }
@@ -462,6 +481,56 @@ public class PatronBookSearchFragment extends Fragment {
             }
         };
         NetworkSingleton.get(getActivity()).addRequest(jsonObjectRequest, "WaitingList Books");
+
+    }
+
+    public void volleyNetworkBookRenew(String url,final Book book){
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.PUT,
+                url, new JSONObject() , new Response.Listener<JSONObject>() {
+            @Override
+            public void onResponse(JSONObject response) {
+                try {
+                    Log.d("Response", response.toString());
+                    if(response.getBoolean("success")){
+                        if(book instanceof BorrowedBook){
+                            ((BorrowedBook)book).setDueDate(response.getString("msg"));
+                        }
+                        adapter.notifyDataSetChanged();
+                        Toast.makeText(getActivity(),"Renew successfully!",Toast.LENGTH_SHORT).show();
+                    }
+                } catch (Exception ex) {
+                }
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                JSONObject jsonObj = null;
+
+                NetworkResponse networkResponse = error.networkResponse;
+                if(networkResponse != null) {
+                    try {
+                        jsonObj = new JSONObject(new String(networkResponse.data));
+
+                        Toast.makeText(getActivity(), jsonObj.getString("msg"), Toast.LENGTH_LONG).show();
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }else{
+                    Toast.makeText(getActivity(), "There is an error. Please contact admin for more info", Toast.LENGTH_LONG).show();
+                    Log.e("Error",error.getMessage());
+                }
+            }
+        }){
+            @Override
+            public Map<String, String> getHeaders() throws AuthFailureError {
+                HashMap<String, String> headers = new HashMap<String, String>();
+                //headers.put("Content-Type", "application/json");
+                headers.put("x-access-token", session.getSessionDetails().get(SessionManagement.KEY_TOKEN));
+                headers.put("Content-Type","application/json");
+                return headers;
+            }
+        };
+        NetworkSingleton.get(getActivity()).addRequest(jsonObjectRequest, "Renew Books");
 
     }
 

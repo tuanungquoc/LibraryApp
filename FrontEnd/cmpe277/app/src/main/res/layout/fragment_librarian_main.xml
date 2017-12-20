@@ -18,6 +18,13 @@
         android:background="@color/colorTextHint"
         android:text="Add Book" />
 
+    <android.support.v7.widget.AppCompatButton
+        android:id="@+id/appCompatButtonTesting"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:layout_margin="20dp"
+        android:background="@color/colorTextHint"
+        android:text="Testing" />
 
 
 </LinearLayout>

@@ -12,12 +12,15 @@ public class BorrowedBook extends Book {
 
     public BorrowedBook(String id, String author, String title, String callnumber, String publisher, String year, String location, String copies, String status, String keywords, String image, String dueDate, String patronId) {
         super(id, author, title, callnumber, publisher, year, location, copies, status, keywords, image);
-        dueDate = dueDate;
-        patronId = patronId;
+        this.dueDate = dueDate;
+        this.patronId = patronId;
     }
 
     public String getDueDate(){
         return dueDate;
+    }
+    public void setDueDate(String dueDate){
+        this.dueDate = dueDate;
     }
 
     public String getBorrowerId(){

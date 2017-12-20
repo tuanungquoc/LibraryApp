@@ -36,6 +36,12 @@ public class PatronBookListSingleton {
          mBooks.clear();
     }
 
+    public void clearSelected(){
+        for(int i = 0 ; i < mBooks.size() ;i++){
+            mBooks.get(i).setIsSelect(false);
+        }
+    }
+
     public void addBook(Book book){
         mBooks.add(book);
     }

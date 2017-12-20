@@ -42,6 +42,9 @@ public class SessionManagement {
     //user role
     public static final String KEY_USER_ROLE = "userRole";
 
+    public static final String KEY_USER_NAME = "userName";
+
+
     // Constructor
     public SessionManagement(Context context){
         this.ctx = context;
@@ -49,12 +52,14 @@ public class SessionManagement {
         editor = pref.edit();
     }
 
-    public void saveLoginSession( String email, String token,String userID, String userRole){
+    public void saveLoginSession( String email, String token,String userID, String userRole, String name){
         editor.putBoolean(IS_LOGIN,true);
         editor.putString(KEY_EMAIL,email);
         editor.putString(KEY_TOKEN, token);
         editor.putString(KEY_USER_ID,userID);
         editor.putString(KEY_USER_ROLE,userRole);
+        editor.putString(KEY_USER_NAME,name);
+
         editor.commit();
     }
 
@@ -68,6 +73,8 @@ public class SessionManagement {
         sessionDetails.put(KEY_USER_ID,pref.getString(KEY_USER_ID,null));
 
         sessionDetails.put(KEY_USER_ROLE, pref.getString(KEY_USER_ROLE,null));
+        sessionDetails.put(KEY_USER_NAME, pref.getString(KEY_USER_NAME,null));
+
         return sessionDetails;
     }
 

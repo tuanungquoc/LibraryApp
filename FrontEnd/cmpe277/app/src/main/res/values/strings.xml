@@ -23,4 +23,10 @@
     <string name="text_hello">Hello,</string>
     <string name="text_title">Android Tutorials Hub</string>
     <string name="text_confirm_token">Account Confirm</string>
+    <string name="text_patron_search_feature">Search Book</string>
+    <string name="text_patron_view_borrowed_feature">View My Borrowed Books</string>
+    <string name="text_patron_view_waitlist_feature">View My Waitlist Books</string>
+    <string name="text_patron_view_reservation_feature">View My Reserved Books</string>
+    <string name="text_patron_view_balance_feature">View My Balance</string>
+
 </resources>

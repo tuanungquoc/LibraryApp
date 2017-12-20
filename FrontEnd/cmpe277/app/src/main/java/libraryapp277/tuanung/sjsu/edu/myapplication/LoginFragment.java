@@ -117,7 +117,8 @@ public class LoginFragment  extends Fragment {
                                 String token = object.getString("token");
                                 String userID = object.getString("userID");
                                 String userRole = object.getString("role");
-                                session.saveLoginSession(email, token, userID, userRole);
+                                String name = object.getString("name");
+                                session.saveLoginSession(email, token, userID, userRole,name);
                                 Intent i = new Intent(getActivity(), MainActivity.class);
                                 startActivity(i);
                                 getActivity().finish();
