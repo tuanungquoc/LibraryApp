@@ -812,7 +812,7 @@ var updateFine = function(listBorrowedBooks){
                 BorrowBooks.update({_id:borrow._id},
                     {
                         "fine":listBorrowedBooks[listBorrowedBooks.length - 1].fine
-				 	},
+				 	}
                 ).exec(function(err,count){
                         //rempve the last element in the array
                         console.log(count);
